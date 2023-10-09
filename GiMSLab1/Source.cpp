@@ -270,10 +270,12 @@ void ReadPath(string& str)
 		str.clear();
 		cout << "Enter path to image" << endl;
 		cin >> str;
+		
 		/*if (bmp == str.substr(str.length() - bmp.length()) || bka == str.substr(str.length() - bka.length()))
 		{
 			break;
 		}*/
+		
 		if (bmp == str.substr(str.length() - bmp.length()))
 		{
 			img_type = 1;
@@ -306,19 +308,23 @@ void MedianFilter()
 				++counter;
 			}
 
+			
 			/*for (int i = 0; i < 5; i++)
 			{
 				cout << (unsigned short)redChannel[i] << " ";
 			}
 			cout << endl;*/
+			
 			sort(redChannel, redChannel + 5);
 			sort(greenChannel, greenChannel + 5);
 			sort(blueChannel, blueChannel + 5);
+			
 			/*for (int i = 0; i < 5; i++)
 			{
 				cout << (unsigned short)redChannel[i] << " ";
 			}
 			cout << endl;*/
+			
 
 			src_image[i * width + j].red = redChannel[(filterWidth - 1) / 2];
 			src_image[i * width + j].green = greenChannel[(filterWidth - 1) / 2];
@@ -694,5 +700,72 @@ int main(int argc, char* argv[])
 	//ShowImage(temp);
 	ClearMemory();
 	cout << "END!" << endl;
+	return 0;
+}*/
+
+/*#include <iostream>
+#include <fstream>
+#include <Windows.h>
+
+typedef struct tBKAHEADER
+{
+	WORD bfType;
+	WORD bfVersion;
+	LONG bfProgramName;
+	DWORD bfSize;
+	WORD bfHeaderSize;
+	DWORD bfRasterSize;
+	BYTE bfBytePerPixel;
+	DWORD bfWidth;
+} sBKAHead;
+
+int main() {
+	std::string imageFilePath = "1.bmp";
+	std::string bkaFilePath = "image.bka";
+
+	// Открываем изображение BMP
+	std::ifstream imageFile(imageFilePath, std::ios::binary);
+	if (!imageFile) {
+		std::cout << "Ошибка при открытии изображения BMP" << std::endl;
+		return 1;
+	}
+
+	// Получаем размер файла
+	imageFile.seekg(0, std::ios::end);
+	std::streampos imageSize = imageFile.tellg();
+	imageFile.seekg(0, std::ios::beg);
+
+	// Создаем и заполняем заголовок BKA
+	sBKAHead bkaHeader;
+	bkaHeader.bfType = 0x4D42; // "BM" в little endian
+	bkaHeader.bfVersion = 1;
+	bkaHeader.bfProgramName = 0;
+	bkaHeader.bfSize = sizeof(sBKAHead) + imageSize;
+	bkaHeader.bfHeaderSize = sizeof(sBKAHead);
+	bkaHeader.bfRasterSize = imageSize;
+	bkaHeader.bfBytePerPixel = 3; // Предполагаем, что изображение в формате RGB
+	bkaHeader.bfWidth = 640; // TODO: Задайте ширину изображения BMP
+
+	// Открываем файл BKA для записи
+	std::ofstream bkaFile(bkaFilePath, std::ios::binary);
+	if (!bkaFile) {
+		std::cout << "Ошибка при создании файла BKA" << std::endl;
+		return 1;
+	}
+
+	// Записываем заголовок BKA
+	bkaFile.write(reinterpret_cast<const char*>(&bkaHeader), sizeof(sBKAHead));
+
+	// Копируем содержимое изображения BMP в файл BKA
+	bkaFile << imageFile.rdbuf();
+
+	// Закрываем файлы
+	imageFile.close();
+	bkaFile.close();
+
+	// Отображаем файл BKA
+	std::string systemCommand = "start " + bkaFilePath;
+	std::system(systemCommand.c_str());
+
 	return 0;
 }*/
