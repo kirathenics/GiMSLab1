@@ -71,7 +71,7 @@ struct Color
 int pixel_size = sizeof(Color);
 
 
-//1 - BMP, 2 - CMP
+//1 - BMP, 2 - BKA
 int img_type = 0;
 
 //Исходное изображение
@@ -103,7 +103,13 @@ void ShowBKAHeaders(tBKAHEADER fh)
 	cout << "Size: " << fh.bfSize << endl;
 	cout << "Width: " << fh.bfWidth << endl;
 	cout << "Height: " << (BKAHead.bfSize - BKAHead.bfHeaderSize) / BKAHead.bfWidth << endl;
+	cout << "Version: " << fh.bfVersion << endl;
+	cout << "Program Name: " << fh.bfProgramName << endl;
+	cout << "Header Size: " << fh.bfHeaderSize << endl;
+	cout << "Raster Size: " << fh.bfRasterSize << endl;
+	cout << "Byte per pixel: " << fh.bfBytePerPixel << endl;
 }
+
 
 //Функция для загрузки изображения
 bool OpenImage(string path)
@@ -175,7 +181,6 @@ bool SaveImage(string path)
 	{
 		return false;
 	}
-
 
 	switch (img_type)
 	{
@@ -252,10 +257,61 @@ void ShowImage(string path)
 		system(path.c_str());
 		break;
 	case 2:
-		ShowBKAHeaders(BKAHead);
+	{
+		//ShowBKAHeaders(BKAHead);
 
-		system((path + ".bmp").c_str());
+		sFileHead fileHeader;
+		sInfoHead infoHeader;
+
+		fileHeader.bfType = 0x4D42;
+		fileHeader.bfSize = sizeof(sFileHead) + sizeof(sInfoHead) + height * width * sizeof(Color);
+		fileHeader.bfReserved1 = 0;
+		fileHeader.bfReserved2 = 0;
+		fileHeader.bfOffBits = sizeof(sFileHead) + sizeof(sInfoHead);
+
+		infoHeader.biSize = sizeof(sInfoHead);
+		infoHeader.biWidth = width;
+		infoHeader.biHeight = height;
+		infoHeader.biPlanes = 1;
+		infoHeader.biBitCount = sizeof(Color) * 8;
+		infoHeader.biCompression = 0;
+		infoHeader.biSizeImage = height * width * sizeof(Color);
+		infoHeader.biXPelsPerMeter = 0;
+		infoHeader.biYPelsPerMeter = 0;
+		infoHeader.biClrUsed = 0;
+		infoHeader.biClrImportant = 0;
+
+		string newName = string((path.substr(0, path.length() - 4) + ".bmp"));
+		std::ofstream file(newName, std::ios::binary | std::ios::trunc);
+
+		char buf[3];
+		if (file)
+		{
+			// Записываем заголовок файла BMP
+			file.write(reinterpret_cast<char*>(&fileHeader), sizeof(sFileHead));
+			file.write(reinterpret_cast<char*>(&infoHeader), sizeof(sInfoHead));
+
+			// Записываем массив пикселей
+			int i, j;
+			for (i = 0; i < height; i++)
+			{
+				for (j = 0; j < width; j++)
+				{
+					file.write((char*)&src_image[i * width + j], pixel_size);
+				}
+				file.write((char*)buf, j % 4);
+			}
+
+			file.close();
+			std::cout << "BMP image created successfully: " << newName << std::endl;
+			system(newName.c_str());
+		}
+		else
+		{
+			std::cout << "Failed to create BMP image: " << string((path.substr(path.length() - 4) + ".bmp")) << std::endl;
+		}
 		break;
+	}
 	default:
 		break;
 	}
@@ -307,24 +363,35 @@ void MedianFilter()
 				blueChannel[counter] = src_image[abs(i * width + k)].blue;
 				++counter;
 			}
-
-			
-			/*for (int i = 0; i < 5; i++)
+			/*int counter = 0;
+			for (int k = j - 2; k <= j + 2; k++)
 			{
-				cout << (unsigned short)redChannel[i] << " ";
-			}
-			cout << endl;*/
+				
+				if (k < 0)
+				{
+					redChannel[counter] = src_image[i * width + 0].red;
+					greenChannel[counter] = src_image[i * width + 0].green;
+					blueChannel[counter] = src_image[i * width + 0].blue;
+					++counter;
+					continue;
+				}
+				if (k > width)
+				{
+					redChannel[counter] = src_image[i * width + width].red;
+					greenChannel[counter] = src_image[i * width + width].green;
+					blueChannel[counter] = src_image[i * width + width].blue;
+					++counter;
+					continue;
+				}
+				redChannel[counter] = src_image[i * width + k].red;
+				greenChannel[counter] = src_image[i * width + k].green;
+				blueChannel[counter] = src_image[i * width + k].blue;
+				++counter;
+			}*/
 			
 			sort(redChannel, redChannel + 5);
 			sort(greenChannel, greenChannel + 5);
-			sort(blueChannel, blueChannel + 5);
-			
-			/*for (int i = 0; i < 5; i++)
-			{
-				cout << (unsigned short)redChannel[i] << " ";
-			}
-			cout << endl;*/
-			
+			sort(blueChannel, blueChannel + 5);			
 
 			src_image[i * width + j].red = redChannel[(filterWidth - 1) / 2];
 			src_image[i * width + j].green = greenChannel[(filterWidth - 1) / 2];
