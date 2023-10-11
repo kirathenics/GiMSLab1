@@ -356,38 +356,22 @@ void MedianFilter()
 		for (int j = 0; j < width; j++)
 		{
 			int counter = 0;
-			for (int k = j - 2; k <= j + 2; k++)
+			for (int k = - 2; k <= 2; k++)
 			{
-				redChannel[counter] = src_image[abs(i * width + k)].red;
-				greenChannel[counter] = src_image[abs(i * width + k)].green;
-				blueChannel[counter] = src_image[abs(i * width + k)].blue;
+				int index = j + k;
+				if (index < 0)
+				{
+					index = 0;
+				}
+				if (index > width)
+				{
+					index = width;
+				}
+				redChannel[counter] = src_image[i * width + index].red;
+				greenChannel[counter] = src_image[i * width + index].green;
+				blueChannel[counter] = src_image[i * width + index].blue;
 				++counter;
 			}
-			/*int counter = 0;
-			for (int k = j - 2; k <= j + 2; k++)
-			{
-				
-				if (k < 0)
-				{
-					redChannel[counter] = src_image[i * width + 0].red;
-					greenChannel[counter] = src_image[i * width + 0].green;
-					blueChannel[counter] = src_image[i * width + 0].blue;
-					++counter;
-					continue;
-				}
-				if (k > width)
-				{
-					redChannel[counter] = src_image[i * width + width].red;
-					greenChannel[counter] = src_image[i * width + width].green;
-					blueChannel[counter] = src_image[i * width + width].blue;
-					++counter;
-					continue;
-				}
-				redChannel[counter] = src_image[i * width + k].red;
-				greenChannel[counter] = src_image[i * width + k].green;
-				blueChannel[counter] = src_image[i * width + k].blue;
-				++counter;
-			}*/
 			
 			sort(redChannel, redChannel + 5);
 			sort(greenChannel, greenChannel + 5);
