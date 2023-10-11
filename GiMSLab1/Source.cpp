@@ -13,6 +13,8 @@
 
 using namespace std;
 
+#define BMP 1
+#define BKA 2
 
 #pragma pack(2)
 
@@ -110,6 +112,29 @@ void ShowBKAHeaders(tBKAHEADER fh)
 	cout << "Byte per pixel: " << fh.bfBytePerPixel << endl;
 }
 
+//Считать путь к изображению
+void ReadPath(string& str)
+{
+	string bmp = ".bmp", bka = ".bka";
+	while (true)
+	{
+		str.clear();
+		cout << "Enter path to image" << endl;
+		cin >> str;
+
+		if (bmp == str.substr(str.length() - bmp.length()))
+		{
+			img_type = 1;
+			break;
+		}
+		if (bka == str.substr(str.length() - bka.length()))
+		{
+			img_type = 2;
+			break;
+		}
+		cout << "Wrong file format!" << endl;
+	}
+}
 
 //Функция для загрузки изображения
 bool OpenImage(string path)
@@ -128,7 +153,7 @@ bool OpenImage(string path)
 
 	switch (img_type)
 	{
-	case 1:
+	case BMP:
 		//Считать заголовки BMP
 		img_file.read((char*)&FileHead, sizeof(FileHead));
 		img_file.read((char*)&InfoHead, sizeof(InfoHead));
@@ -138,7 +163,8 @@ bool OpenImage(string path)
 		width = InfoHead.biWidth;
 		height = InfoHead.biHeight;
 		break;
-	case 2:
+	case BKA:
+		//Считать заголовки BKA
 		img_file.read((char*)&BKAHead, sizeof(BKAHead));
 
 		ShowBKAHeaders(BKAHead);
@@ -184,7 +210,7 @@ bool SaveImage(string path)
 
 	switch (img_type)
 	{
-	case 1:
+	case BMP:
 		img_file.write((char*)&FileHead, sizeof(FileHead));
 		img_file.write((char*)&InfoHead, sizeof(InfoHead));
 
@@ -192,7 +218,7 @@ bool SaveImage(string path)
 		dst_image = new Color[width * height];
 		memcpy(dst_image, src_image, width * height * sizeof(Color));
 		break;
-	case 2:
+	case BKA:
 		img_file.write((char*)&BKAHead, sizeof(BKAHead));
 
 		//Скопировать из исходного в результирующее изображение
@@ -202,7 +228,6 @@ bool SaveImage(string path)
 	default:
 		break;
 	}
-
 
 	//Записать файл
 	int i, j;
@@ -219,12 +244,92 @@ bool SaveImage(string path)
 	return true;
 }
 
+//Отобразить текущее изображение с помощью вызова стандартного просмотрщика
+void ShowImage(string path)
+{
+	switch (img_type)
+	{
+	case 1:
+		ShowBMPHeaders(FileHead, InfoHead);
+		system(path.c_str());
+		break;
+	case 2:
+	{
+		ShowBKAHeaders(BKAHead);
+
+		FileHead.bfType = 0x4D42;
+		FileHead.bfSize = sizeof(sFileHead) + sizeof(sInfoHead) + height * width * sizeof(Color);
+		FileHead.bfReserved1 = 0;
+		FileHead.bfReserved2 = 0;
+		FileHead.bfOffBits = sizeof(sFileHead) + sizeof(sInfoHead);
+
+		InfoHead.biSize = sizeof(sInfoHead);
+		InfoHead.biWidth = width;
+		InfoHead.biHeight = height;
+		InfoHead.biPlanes = 1;
+		InfoHead.biBitCount = sizeof(Color) * 8;
+		InfoHead.biCompression = 0;
+		InfoHead.biSizeImage = height * width * sizeof(Color);
+		InfoHead.biXPelsPerMeter = 0;
+		InfoHead.biYPelsPerMeter = 0;
+		InfoHead.biClrUsed = 0;
+		InfoHead.biClrImportant = 0;
+
+		//string bmpName = string((path.substr(0, path.length() - 4) + ".bmp"));
+		string bmpName = "gimslab1.bmp";
+		ofstream file(bmpName, ios::binary | ios::trunc);
+
+		char buf[3];
+		if (file)
+		{
+			// Записываем заголовок файла BMP
+			file.write((char*)&FileHead, sizeof(sFileHead));
+			file.write((char*)&InfoHead, sizeof(sInfoHead));
+
+			// Записываем массив пикселей
+			int i, j;
+			for (i = 0; i < height; i++)
+			{
+				for (j = 0; j < width; j++)
+				{
+					file.write((char*)&src_image[i * width + j], pixel_size);
+				}
+				file.write((char*)buf, j % 4);
+			}
+
+			file.close();
+			system(bmpName.c_str());
+		}
+		else
+		{
+			std::cout << "Failed to create BMP image: " << bmpName << std::endl;
+		}
+		break;
+	}
+	default:
+		break;
+	}
+}
+
 //Скопировать содержимое результируещего изображения в начальное
 void CopyDstToSrc()
 {
 	if (dst_image != 0)
 	{
 		memcpy(src_image, dst_image, width * height * sizeof(Color));
+	}
+}
+
+void ClearMemory(void) {
+	//Освободить память исходного изображения
+	if (src_image != 0)
+	{
+		delete[] src_image;
+	}
+	//Освободить память результрующего изображения
+	if (dst_image != 0)
+	{
+		delete[] dst_image;
 	}
 }
 
@@ -247,105 +352,6 @@ void AddNoise(double probability)
 	cout << "Point was added: " << count << endl;
 }
 
-//Отобразить текущее изображение с помощью вызова стандартного просмотрщика
-void ShowImage(string path)
-{
-	switch (img_type)
-	{
-	case 1:
-		ShowBMPHeaders(FileHead, InfoHead);
-		system(path.c_str());
-		break;
-	case 2:
-	{
-		//ShowBKAHeaders(BKAHead);
-
-		sFileHead fileHeader;
-		sInfoHead infoHeader;
-
-		fileHeader.bfType = 0x4D42;
-		fileHeader.bfSize = sizeof(sFileHead) + sizeof(sInfoHead) + height * width * sizeof(Color);
-		fileHeader.bfReserved1 = 0;
-		fileHeader.bfReserved2 = 0;
-		fileHeader.bfOffBits = sizeof(sFileHead) + sizeof(sInfoHead);
-
-		infoHeader.biSize = sizeof(sInfoHead);
-		infoHeader.biWidth = width;
-		infoHeader.biHeight = height;
-		infoHeader.biPlanes = 1;
-		infoHeader.biBitCount = sizeof(Color) * 8;
-		infoHeader.biCompression = 0;
-		infoHeader.biSizeImage = height * width * sizeof(Color);
-		infoHeader.biXPelsPerMeter = 0;
-		infoHeader.biYPelsPerMeter = 0;
-		infoHeader.biClrUsed = 0;
-		infoHeader.biClrImportant = 0;
-
-		string newName = string((path.substr(0, path.length() - 4) + ".bmp"));
-		std::ofstream file(newName, std::ios::binary | std::ios::trunc);
-
-		char buf[3];
-		if (file)
-		{
-			// Записываем заголовок файла BMP
-			file.write(reinterpret_cast<char*>(&fileHeader), sizeof(sFileHead));
-			file.write(reinterpret_cast<char*>(&infoHeader), sizeof(sInfoHead));
-
-			// Записываем массив пикселей
-			int i, j;
-			for (i = 0; i < height; i++)
-			{
-				for (j = 0; j < width; j++)
-				{
-					file.write((char*)&src_image[i * width + j], pixel_size);
-				}
-				file.write((char*)buf, j % 4);
-			}
-
-			file.close();
-			std::cout << "BMP image created successfully: " << newName << std::endl;
-			system(newName.c_str());
-		}
-		else
-		{
-			std::cout << "Failed to create BMP image: " << string((path.substr(path.length() - 4) + ".bmp")) << std::endl;
-		}
-		break;
-	}
-	default:
-		break;
-	}
-}
-
-//Считать путь к изображению
-void ReadPath(string& str)
-{
-	string bmp = ".bmp", bka = ".bka";
-	while (true)
-	{
-		str.clear();
-		cout << "Enter path to image" << endl;
-		cin >> str;
-		
-		/*if (bmp == str.substr(str.length() - bmp.length()) || bka == str.substr(str.length() - bka.length()))
-		{
-			break;
-		}*/
-		
-		if (bmp == str.substr(str.length() - bmp.length()))
-		{
-			img_type = 1;
-			break;
-		}
-		if (bka == str.substr(str.length() - bka.length()))
-		{
-			img_type = 2;
-			break;
-		}
-		cout << "Wrong file format!" << endl;
-	}
-}
-
 void MedianFilter()
 {
 	int filterWidth = 5, filterHeight = 1;
@@ -356,7 +362,7 @@ void MedianFilter()
 		for (int j = 0; j < width; j++)
 		{
 			int counter = 0;
-			for (int k = - 2; k <= 2; k++)
+			for (int k = -2; k <= 2; k++)
 			{
 				int index = j + k;
 				if (index < 0)
@@ -372,29 +378,15 @@ void MedianFilter()
 				blueChannel[counter] = src_image[i * width + index].blue;
 				++counter;
 			}
-			
+
 			sort(redChannel, redChannel + 5);
 			sort(greenChannel, greenChannel + 5);
-			sort(blueChannel, blueChannel + 5);			
+			sort(blueChannel, blueChannel + 5);
 
 			src_image[i * width + j].red = redChannel[(filterWidth - 1) / 2];
 			src_image[i * width + j].green = greenChannel[(filterWidth - 1) / 2];
 			src_image[i * width + j].blue = blueChannel[(filterWidth - 1) / 2];
 		}
-	}
-}
-
-
-void ClearMemory(void) {
-	//Освободить память исходного изображения
-	if (src_image != 0)
-	{
-		delete[] src_image;
-	}
-	//Освободить память результрующего изображения
-	if (dst_image != 0)
-	{
-		delete[] dst_image;
 	}
 }
 
@@ -404,7 +396,6 @@ int main(int argc, char* argv[])
 
 	//Путь к текущему изображению
 	string path_to_image, temp;
-
 
 	ReadPath(path_to_image);
 	OpenImage(path_to_image);
@@ -751,72 +742,5 @@ int main(int argc, char* argv[])
 	//ShowImage(temp);
 	ClearMemory();
 	cout << "END!" << endl;
-	return 0;
-}*/
-
-/*#include <iostream>
-#include <fstream>
-#include <Windows.h>
-
-typedef struct tBKAHEADER
-{
-	WORD bfType;
-	WORD bfVersion;
-	LONG bfProgramName;
-	DWORD bfSize;
-	WORD bfHeaderSize;
-	DWORD bfRasterSize;
-	BYTE bfBytePerPixel;
-	DWORD bfWidth;
-} sBKAHead;
-
-int main() {
-	std::string imageFilePath = "1.bmp";
-	std::string bkaFilePath = "image.bka";
-
-	// Открываем изображение BMP
-	std::ifstream imageFile(imageFilePath, std::ios::binary);
-	if (!imageFile) {
-		std::cout << "Ошибка при открытии изображения BMP" << std::endl;
-		return 1;
-	}
-
-	// Получаем размер файла
-	imageFile.seekg(0, std::ios::end);
-	std::streampos imageSize = imageFile.tellg();
-	imageFile.seekg(0, std::ios::beg);
-
-	// Создаем и заполняем заголовок BKA
-	sBKAHead bkaHeader;
-	bkaHeader.bfType = 0x4D42; // "BM" в little endian
-	bkaHeader.bfVersion = 1;
-	bkaHeader.bfProgramName = 0;
-	bkaHeader.bfSize = sizeof(sBKAHead) + imageSize;
-	bkaHeader.bfHeaderSize = sizeof(sBKAHead);
-	bkaHeader.bfRasterSize = imageSize;
-	bkaHeader.bfBytePerPixel = 3; // Предполагаем, что изображение в формате RGB
-	bkaHeader.bfWidth = 640; // TODO: Задайте ширину изображения BMP
-
-	// Открываем файл BKA для записи
-	std::ofstream bkaFile(bkaFilePath, std::ios::binary);
-	if (!bkaFile) {
-		std::cout << "Ошибка при создании файла BKA" << std::endl;
-		return 1;
-	}
-
-	// Записываем заголовок BKA
-	bkaFile.write(reinterpret_cast<const char*>(&bkaHeader), sizeof(sBKAHead));
-
-	// Копируем содержимое изображения BMP в файл BKA
-	bkaFile << imageFile.rdbuf();
-
-	// Закрываем файлы
-	imageFile.close();
-	bkaFile.close();
-
-	// Отображаем файл BKA
-	std::string systemCommand = "start " + bkaFilePath;
-	std::system(systemCommand.c_str());
-
 	return 0;
 }*/
